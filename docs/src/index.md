@@ -45,7 +45,7 @@ If you use ProxTV.jl in your research, please cite:
 @software{allaire2025proxtv,
   author = {Allaire, Nathan},
   title = {ProxTV.jl: Efficient Proximal Operators for Total Variation Regularization},
-  url = {https://github.com/nathanemac/ProxTV.jl},
+  url = {https://github.com/JuliaSmoothOptimizers/ProxTV.jl},
   year = {2025}
 }
 ```
