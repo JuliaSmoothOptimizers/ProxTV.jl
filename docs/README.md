@@ -56,7 +56,7 @@ The built documentation will be in the `docs/build` directory.
 The documentation is automatically deployed when changes are pushed to the main branch. This is handled by the GitHub workflow defined in `.github/workflows/Docs.yml`.
 
 A GitHub action builds the documentation and deploys it to:
-<https://nathanemac.github.io/ProxTV.jl/>
+<https://juliasmoothoptimizers.github.io/ProxTV.jl/>
 
 ## Customization
 

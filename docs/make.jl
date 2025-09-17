@@ -8,11 +8,11 @@ makedocs(
   sitename = "ProxTV.jl",
   format = Documenter.HTML(
     prettyurls = get(ENV, "CI", nothing) == "true",
-    canonical = "https://nathanemac.github.io/ProxTV.jl",
+    canonical = "https://juliasmoothoptimizers.github.io/ProxTV.jl",
     assets = String[],
     ansicolor = true,
   ),
-  repo = "https://github.com/nathanemac/ProxTV.jl",
+  repo = "https://github.com/JuliaSmoothOptimizers/ProxTV.jl",
   authors = "Nathan Allaire <nathan.allaire@polymtl.ca> and contributors",
   pages = [
     "Home" => "index.md",

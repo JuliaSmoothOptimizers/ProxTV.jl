@@ -1,15 +1,15 @@
 # ProxTV
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://nathanemac.github.io/ProxTV.jl)
-[![Build Status](https://github.com/nathanemac/ProxTV.jl/workflows/Test/badge.svg)](https://github.com/nathanemac/ProxTV.jl/actions)
-[![Test workflow status](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Test.yml?query=branch%3Amain)
-[![Lint workflow Status](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Lint.yml?query=branch%3Amain)
-[![Docs workflow Status](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/nathanemac/ProxTV.jl/actions/workflows/Docs.yml?query=branch%3Amain)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliasmoothoptimizers.github.io/ProxTV.jl)
+[![Build Status](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/workflows/Test/badge.svg)](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions)
+[![Test workflow status](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Test.yml/badge.svg?branch=main)](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Test.yml?query=branch%3Amain)
+[![Lint workflow Status](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Lint.yml/badge.svg?branch=main)](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Lint.yml?query=branch%3Amain)
+[![Docs workflow Status](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Docs.yml/badge.svg?branch=main)](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/actions/workflows/Docs.yml?query=branch%3Amain)
 
-[![Coverage](https://codecov.io/gh/nathanemac/ProxTV.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/nathanemac/ProxTV.jl)
+[![Coverage](https://codecov.io/gh/JuliaSmoothOptimizers/ProxTV.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/ProxTV.jl)
 [![DOI](https://zenodo.org/badge/DOI/FIXME)](https://doi.org/FIXME)
 
-[![All Contributors](https://img.shields.io/github/all-contributors/nathanemac/ProxTV.jl?labelColor=5e1ec7&color=c0ffee&style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/github/all-contributors/JuliaSmoothOptimizers/ProxTV.jl?labelColor=5e1ec7&color=c0ffee&style=flat-square)](#contributors)
 
 ProxTV.jl is a Julia package that provides a collection of exact and inexact proximal operators. This includes the Total Variation (TV) regularization with any p-norm.
 
@@ -49,7 +49,7 @@ prox!(recovered_signal, h, noisy_signal, 1.0)
   <img src="src/assets/simple_example_plot.png" alt="Result" />
 </p>
 
-Comprehensive documentation and more examples can be found in the [online documentation](https://nathanemac.github.io/ProxTV.jl).
+Comprehensive documentation and more examples can be found in the [online documentation](https://juliasmoothoptimizers.github.io/ProxTV.jl).
 
 ## Features
 
@@ -73,7 +73,7 @@ If you want to integrate your proximal operator in `RegularizedOptimization.jl`,
 
 ## How to Cite
 
-If you use ProxTV.jl in your work, please cite using the reference given in [CITATION.cff](https://github.com/nathanemac/ProxTV.jl/blob/main/CITATION.cff).
+If you use ProxTV.jl in your work, please cite using the reference given in [CITATION.cff](https://github.com/JuliaSmoothOptimizers/ProxTV.jl/blob/main/CITATION.cff).
 
 ## Contributing
 
