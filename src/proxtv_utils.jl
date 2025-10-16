@@ -19,7 +19,7 @@ export update_prox_context!
 Default callback function used in ProxTV.jl for the TVp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * ξₖ
+δₖ ≤ ((1-κξ)/κξ) * ξₖ + 1/(2 * ν) * ‖s‖^2 and ξₖ ≥ 0
 ```
 where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
@@ -53,6 +53,7 @@ function default_proxTV_callback_TVp(
   n = Int(s_length)
 
   λ = context.λ::Float64
+  ν = context.ν::Float64
   ψ_val::Float64 = λ * TVp_norm(context.s_k, n, context.p)
   ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
   mks = ϕ_val + ψ_val
@@ -61,7 +62,9 @@ function default_proxTV_callback_TVp(
   κξ = context.κξ::Float64
   ξk::Float64 = hk - mks
   ratio::Float64 = (1.0 - κξ) / κξ
-  condition::Bool = delta_k ≤ ratio * ξk
+  s_norm = norm(context.s_k_unshifted)
+
+  condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
 
   return condition ? Int32(1) : Int32(0)
 end
@@ -73,7 +76,7 @@ end
 Default callback function used in ProxTV.jl for the Lp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * ξₖ
+δₖ ≤ ((1-κξ)/κξ) * ξₖ + 1/(2 * ν) * ‖s‖^2 and ξₖ ≥ 0
 ```
 where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
@@ -107,16 +110,18 @@ function default_proxTV_callback_Lp(
   n = Int(s_length)
 
   λ = context.λ::Float64
+  ν = context.ν::Float64
   ψ_val::Float64 = λ * LPnorm(context.s_k, n, context.p::Float64)
   ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
   mks = ϕ_val + ψ_val
 
   hk = context.hk::Float64
-
   κξ = context.κξ::Float64
   ξk::Float64 = hk - mks
   ratio::Float64 = (1.0 - κξ) / κξ
-  condition::Bool = delta_k ≤ ratio * ξk
+  s_norm = norm(context.s_k_unshifted)
+
+  condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
 
   return condition ? Int32(1) : Int32(0)
 
@@ -206,6 +211,7 @@ mutable struct ProxTVContext{F}
   h_fun::F
   p::Real
   λ::Real
+  ν::Real
   κξ::Float64
   shift::Vector{Float64}
   s_k_unshifted::Vector{Float64}
@@ -225,6 +231,7 @@ mutable struct ProxTVContext{F}
     h_fun::F,
     p::Real,
     λ::Real,
+    ν::Real,
     κξ::Float64,
     shift::Vector{Float64},
     s_k_unshifted::Vector{Float64},
@@ -244,6 +251,7 @@ mutable struct ProxTVContext{F}
       h_fun,
       p,
       λ::Real,
+      ν,
       κξ,
       shift,
       s_k_unshifted,
@@ -269,6 +277,7 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
   s_k_unshifted = zeros(n)
   hk = 0.0
   ∇fk = similar(shift)
+  ν = 1.0
   if h_symb == :lp
     h_fun = LPnorm
   elseif h_symb == :tvp
@@ -304,6 +313,7 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
     h_fun,
     p,
     λ,
+    ν,
     κξ,
     shift,
     s_k_unshifted,
@@ -586,6 +596,7 @@ function prox!(y::AbstractArray, ψ::ShiftedNormLp, q::AbstractArray, ν::Real)
 
     # Adjust lambda to account for ν (multiply λ by ν)
     lambda_scaled = ψ.h.λ * ν
+    ψ.h.context.ν = ν
 
     positive = Int32(all(v -> v >= 0, y_shifted) ? 1 : 0)
     if ψ.h.p == 1
@@ -912,6 +923,7 @@ function prox!(y::AbstractArray, ψ::ShiftedNormTVp, q::AbstractArray, ν::Real)
 
     # Adjust lambda to account for ν
     lambda_scaled = ψ.h.λ * ν
+    ψ.h.context.ν = ν
 
     # Call the TV function from ProxTV package
     TV(
@@ -991,6 +1003,7 @@ function update_prox_context!(solver, stats, ψ::ShiftedNormLp)
   ψ.h.context.hk = stats.solver_specific[:nonsmooth_obj]
   copy!(ψ.h.context.∇fk, solver.∇fk)
   @. ψ.h.context.shift = ψ.xk + ψ.sj
+
   return
 end
 
