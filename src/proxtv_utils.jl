@@ -418,6 +418,7 @@ function prox!(y::AbstractArray, h::NormLp, q::AbstractArray, ν::Real)
 
     # Adjust lambda to account for ν (multiply λ by ν)
     lambda_scaled = h.λ * ν
+    h.context.ν = ν
 
     positive = Int32(all(v -> v >= 0, y) ? 1 : 0)
 
@@ -863,6 +864,7 @@ function prox!(y::AbstractArray, h::NormTVp, q::AbstractArray, ν::Real)
 
     # λ mis à l’échelle par ν
     λ_scaled = h.λ * ν
+    h.context.ν = ν
 
     # Appel à l’opérateur TVp de ProxTV
     TV(
