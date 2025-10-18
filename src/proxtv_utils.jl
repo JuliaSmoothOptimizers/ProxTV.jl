@@ -203,6 +203,11 @@ and algorithm parameters.
 - `y_shifted::Vector{Float64}`: for shifted versions
 - `s::Vector{Float64}`: to store s = x - xk - sj
 - `s_k::Vector{Float64}`: to store s_k in the callback
+- `prox_calls_outer::Int64`: number of calls to the outer proximal operator
+- `prox_calls_inner::Int64`: number of calls to the inner proximal operator
+- `prox_iters_outer::Int64`: number of iterations of the outer proximal operator
+- `prox_iters_inner::Int64`: number of iterations of the inner proximal operator
+- `last_prox_iters::Int64`: number of iterations of the last proximal operator
 """
 mutable struct ProxTVContext{F}
   hk::Float64
@@ -223,7 +228,11 @@ mutable struct ProxTVContext{F}
   y_shifted::Vector{Float64}
   s::Vector{Float64}
   s_k::Vector{Float64}
-
+  prox_calls_outer::Int64
+  prox_calls_inner::Int64
+  prox_iters_outer::Int64
+  prox_iters_inner::Int64
+  last_prox_iters::Int64
   function ProxTVContext{F}(
     hk::Float64,
     h_symb::Symbol,
@@ -243,6 +252,11 @@ mutable struct ProxTVContext{F}
     y_shifted::Vector{Float64},
     s::Vector{Float64},
     s_k::Vector{Float64},
+    prox_calls_outer::Int64,
+    prox_calls_inner::Int64,
+    prox_iters_outer::Int64,
+    prox_iters_inner::Int64,
+    last_prox_iters::Int64,
   ) where {F}
     ctx = new{F}(
       hk,
@@ -263,6 +277,11 @@ mutable struct ProxTVContext{F}
       y_shifted,
       s,
       s_k,
+      prox_calls_outer,
+      prox_calls_inner,
+      prox_iters_outer,
+      prox_iters_inner,
+      last_prox_iters,
     )
     return ctx
   end
@@ -289,7 +308,11 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
   s = zeros(Float64, n)
   prox_stats = zeros(Int64, 3)
   s_k = zeros(Float64, n)
-
+  prox_calls_outer = 0
+  prox_calls_inner = 0
+  prox_iters_outer = 0
+  prox_iters_inner = 0
+  last_prox_iters = 0
   if h_symb == :tvp
     callback_pointer = @cfunction(
       default_proxTV_callback_TVp,
@@ -325,6 +348,11 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
     y_shifted,
     s,
     s_k,
+    prox_calls_outer,
+    prox_calls_inner,
+    prox_iters_outer,
+    prox_iters_inner,
+    last_prox_iters,
   )
 end
 
@@ -437,6 +465,7 @@ function prox!(y::AbstractArray, h::NormLp, q::AbstractArray, ν::Real)
     )
 
     # add the number of iterations in prox to the context object
+    context.last_prox_iters = Int64(info[1])
     h.context.prox_stats[3] += Int64(info[1])
 
     return y
@@ -594,7 +623,6 @@ function prox!(y::AbstractArray, ψ::ShiftedNormLp, q::AbstractArray, ν::Real)
 
     # Compute y_shifted = xk + sj + q
     @. y_shifted = ψ.xk + ψ.sj + q
-
     # Adjust lambda to account for ν (multiply λ by ν)
     lambda_scaled = ψ.h.λ * ν
     ψ.h.context.ν = ν
@@ -629,6 +657,7 @@ function prox!(y::AbstractArray, ψ::ShiftedNormLp, q::AbstractArray, ν::Real)
 
     # add the number of iterations in prox to the context object
     context.prox_stats[3] += Int64(info[1])
+    context.last_prox_iters = Int64(info[1])
 
     return y
   finally
@@ -880,6 +909,7 @@ function prox!(y::AbstractArray, h::NormTVp, q::AbstractArray, ν::Real)
     )
 
     # Statistiques : ajout des itérations effectuées
+    context.last_prox_iters = Int64(info[1])
     h.context.prox_stats[3] += Int64(info[1])
 
     return y
@@ -947,6 +977,7 @@ function prox!(y::AbstractArray, ψ::ShiftedNormTVp, q::AbstractArray, ν::Real)
     y .= s
 
     # add the number of iterations in prox to the context object
+    context.last_prox_iters = Int64(info[1])
     context.prox_stats[3] += Int64(info[1])
 
     return y
@@ -1001,6 +1032,7 @@ Updates the context of a ShiftedNormLp object before calling prox!.
 - `stats`: stats object
 - `ψ`: ShiftedNormLp object
 """
+# TODO check that too!!
 function update_prox_context!(solver, stats, ψ::ShiftedNormLp)
   ψ.h.context.hk = stats.solver_specific[:nonsmooth_obj]
   copy!(ψ.h.context.∇fk, solver.∇fk)
