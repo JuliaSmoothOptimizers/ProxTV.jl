@@ -19,7 +19,7 @@ export update_prox_context!
 Default callback function used in ProxTV.jl for the TVp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * ξₖ + 1/(2 * ν) * ‖s‖^2 and ξₖ ≥ 0
+δₖ ≤ ((1-κξ)/κξ) * (ξₖ - 1/(2 * ν) * ‖s‖^2)
 ```
 where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
@@ -64,7 +64,9 @@ function default_proxTV_callback_TVp(
   ratio::Float64 = (1.0 - κξ) / κξ
   s_norm = norm(context.s_k_unshifted)
 
-  condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
+  # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
+  condition::Bool = delta_k ≤ ratio * (ξk - 1 / (2 * ν) * s_norm^2)
+
 
   return condition ? Int32(1) : Int32(0)
 end
@@ -76,8 +78,7 @@ end
 Default callback function used in ProxTV.jl for the Lp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * ξₖ + 1/(2 * ν) * ‖s‖^2 and ξₖ ≥ 0
-```
+δₖ ≤ ((1-κξ)/κξ) * (ξₖ - 1/(2 * ν) * ‖s‖^2)
 where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
 # Arguments
@@ -121,7 +122,8 @@ function default_proxTV_callback_Lp(
   ratio::Float64 = (1.0 - κξ) / κξ
   s_norm = norm(context.s_k_unshifted)
 
-  condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
+  # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
+  condition::Bool = delta_k ≤ ratio * (ξk - 1 / (2 * ν) * s_norm^2)
 
   return condition ? Int32(1) : Int32(0)
 
