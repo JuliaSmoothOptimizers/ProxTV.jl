@@ -65,7 +65,7 @@ function default_proxTV_callback_TVp(
   s_norm = norm(context.s_k_unshifted)
 
   # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
-  condition::Bool = delta_k ≤ ratio * (ξk - 1 / (2 * ν) * s_norm^2)
+  condition::Bool = delta_k ≤ ratio * (ξk + 1 / (2 * ν) * s_norm^2) && ξk ≥ 0
 
 
   return condition ? Int32(1) : Int32(0)
@@ -123,7 +123,7 @@ function default_proxTV_callback_Lp(
   s_norm = norm(context.s_k_unshifted)
 
   # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
-  condition::Bool = delta_k ≤ ratio * (ξk - 1 / (2 * ν) * s_norm^2)
+  condition::Bool = delta_k ≤ ratio * (ξk + 1 / (2 * ν) * s_norm^2) && ξk ≥ 0
 
   return condition ? Int32(1) : Int32(0)
 
