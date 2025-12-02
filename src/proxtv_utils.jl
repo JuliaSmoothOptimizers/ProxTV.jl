@@ -8,6 +8,8 @@ abstract type InexactShiftedProximableFunction end
 
 export default_proxTV_callback_TVp
 export default_proxTV_callback_Lp
+export absolute_criterion_proxTV_callback_TVp
+export absolute_criterion_proxTV_callback_Lp
 export default_proxTV_callback_v2
 export default_proxTV_callback_v3
 
@@ -19,9 +21,9 @@ export update_prox_context!
 Default callback function used in ProxTV.jl for the TVp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * (ξₖ - 1/(2 * ν) * ‖s‖^2)
+δₖ ≤ ((1-κs)/κs) * (ξₖ - 1/(2 * ν) * ‖s‖^2)
 ```
-where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
+where κs is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
 # Arguments
 - `s_ptr`: Pointer to the current solution
@@ -52,21 +54,85 @@ function default_proxTV_callback_TVp(
   @. context.s_k_unshifted = context.s_k - context.shift
   n = Int(s_length)
 
-  λ = context.λ::Float64
   ν = context.ν::Float64
+
+  # compute ξk
+  λ = context.λ::Float64
+  ψ_val::Float64 = λ * TVp_norm(context.s_k, n, context.p)
+  ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
+  mks = ϕ_val + ψ_val
+  hk = context.hk::Float64
+  ξk::Float64 = hk - mks
+
+  # compute the theoretical stopping criterion (s_norm ≥ κs * bound_s)
+  κs = context.κs::Float64
+  s_norm = norm(context.s_k_unshifted)
+  ∇fk_norm = norm(context.∇fk)
+  σmax = 2 * sin(π * (n - 1) / (2 * n))
+  u_norm_bound = max(1, n^(1 / context.p - 1 / 2))
+  bound_s = ν * (∇fk_norm + σmax) * u_norm_bound
+
+  # also compute the non-theoretical stopping criterion (delta_k ≤ dualGap) in case our bound on s is too hard to reach
+  dualGap = context.dualGap::Float64
+
+  condition::Bool = (delta_k ≤ dualGap || s_norm ≥ κs * bound_s) && ξk ≥ 0
+
+  #println(
+  #  "--------------------------------\n s_norm: $s_norm,\n s_bound: $(κs * bound_s),\n delta_k: $delta_k,\n dualGap: $dualGap,\n ξk: $ξk\n condition: $condition",
+  #)
+
+  return condition ? Int32(1) : Int32(0)
+end
+
+"""
+    absolute_criterion_proxTV_callback_TVp(s_ptr::Ptr{Cdouble}, s_length::Csize_t, delta_k::Cdouble, ctx_ptr::Ptr{Cvoid})::Cint
+
+Callback function used in ProxTV.jl for the TVp norm with absolute stopping criterion. Implements the stopping criterion based on the condition:
+```
+δₖ ≤ dualGap
+```
+# Arguments
+- `s_ptr`: Pointer to the current solution
+- `s_length`: Length of the solution vector
+- `delta_k`: Current duality gap
+- `ctx_ptr`: Pointer to the ProxTVContext object
+
+# Returns
+- `Int32(1)` if the non-theoretical stopping criterion is satisfied
+- `Int32(0)` otherwise
+
+# Note
+This function is optimized for ProxTV.jl. It is not intended to be used directly.
+If the user wants to use a different function, it should be implemented with care.
+"""
+function absolute_criterion_proxTV_callback_TVp(
+  s_ptr::Ptr{Cdouble},
+  s_length::Csize_t,
+  delta_k::Cdouble,
+  ctx_ptr::Ptr{Cvoid},
+)::Cint
+
+  @warn(
+    "absolute_criterion_proxTV_callback_TVp is deprecated. Use default_proxTV_callback_TVp instead."
+  )
+  context = unsafe_pointer_to_objref(ctx_ptr)::ProxTVContext{typeof(TVp_norm)}
+  @inbounds for i = 1:s_length
+    context.s_k[i] = unsafe_load(s_ptr, i)
+  end
+
+  @. context.s_k_unshifted = context.s_k - context.shift
+  n = Int(s_length)
+
+  λ = context.λ::Float64
   ψ_val::Float64 = λ * TVp_norm(context.s_k, n, context.p)
   ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
   mks = ϕ_val + ψ_val
 
   hk = context.hk::Float64
-  κξ = context.κξ::Float64
   ξk::Float64 = hk - mks
-  ratio::Float64 = (1.0 - κξ) / κξ
-  s_norm = norm(context.s_k_unshifted)
 
-  # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
-  condition::Bool = delta_k ≤ ratio * (ξk + 1 / (2 * ν) * s_norm^2) && ξk ≥ 0
-
+  dualGap = context.dualGap::Float64
+  condition::Bool = delta_k ≤ dualGap && ξk > 0 # ceci decroit quand κs croit
 
   return condition ? Int32(1) : Int32(0)
 end
@@ -78,8 +144,9 @@ end
 Default callback function used in ProxTV.jl for the Lp norm. Implements the stopping criterion based on the ratio between
 the current duality gap δₖ and the model decrease ξₖ:
 ```
-δₖ ≤ ((1-κξ)/κξ) * (ξₖ - 1/(2 * ν) * ‖s‖^2)
-where κξ is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
+δₖ ≤ ((1-κs)/κs) * (ξₖ + 1/(2 * ν) * ‖s‖^2)
+```
+where κs is a parameter between 1/2 and 1 that controls the precision of the proximal operator.
 
 # Arguments
 - `s_ptr`: Pointer to the current solution
@@ -102,6 +169,80 @@ function default_proxTV_callback_Lp(
   ctx_ptr::Ptr{Cvoid},
 )::Cint
 
+  #TODO: beaucoup de calculs redondants dans cette fonction, il faudrait les optimiser.
+  # par exemple, on calcule ∇fk_norm à chaque fois, alors qu'il ne change pas.
+
+  context = unsafe_pointer_to_objref(ctx_ptr)::ProxTVContext{typeof(LPnorm)}
+  @inbounds for i = 1:s_length
+    context.s_k[i] = unsafe_load(s_ptr, i)
+  end
+
+  @. context.s_k_unshifted = context.s_k - context.shift
+  n = Int(s_length)
+
+
+  # compute ξk
+  λ = context.λ::Float64
+  ψ_val::Float64 = λ * LPnorm(context.s_k, n, context.p::Float64)
+  ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
+  mks = ϕ_val + ψ_val
+  hk = context.hk::Float64
+  ξk::Float64 = hk - mks
+
+  # compute the theoretical stopping criterion (s_norm ≥ κs * bound_s)
+  κs = context.κs::Float64
+  ν = context.ν::Float64
+  s_norm = norm(context.s_k_unshifted)
+  ∇fk_norm = norm(context.∇fk)
+
+  # compute the non-theoretical stopping criterion (delta_k ≤ dualGap) in case our bound on s is too hard to reach
+  dualGap = context.dualGap::Float64
+
+  bound_s_p_geq_2 = ν * (∇fk_norm + 1)
+  bound_s_p_less_2 = ν * (∇fk_norm + n^(1 / context.p - 1 / 2))
+  condition_s_norm =
+    context.p >= 2 ? s_norm ≥ κs * bound_s_p_geq_2 : s_norm ≥ κs * bound_s_p_less_2
+  condition::Bool = (condition_s_norm || delta_k ≤ dualGap) && ξk ≥ 0
+
+  #println(
+  #  "--------------------------------\n s_norm: $s_norm,\n s_bound: $(κs * bound_s_p_geq_2),\n delta_k: $delta_k,\n dualGap: $dualGap,\n ξk: $ξk\n condition: $condition",
+  #)
+
+  return condition ? Int32(1) : Int32(0)
+end
+
+"""
+    absolute_criterion_proxTV_callback_Lp(s_ptr::Ptr{Cdouble}, s_length::Csize_t, delta_k::Cdouble, ctx_ptr::Ptr{Cvoid})::Cint
+
+Callback function used in ProxTV.jl for the Lp norm with absolute stopping criterion. Implements the stopping criterion based on the condition:
+```
+δₖ ≤ dualGap
+```
+# Arguments
+- `s_ptr`: Pointer to the current solution
+- `s_length`: Length of the solution vector
+- `delta_k`: Current duality gap
+- `ctx_ptr`: Pointer to the ProxTVContext object
+
+# Returns
+- `Int32(1)` if the non-theoretical stopping criterion is satisfied
+- `Int32(0)` otherwise
+
+# Note
+This function is optimized for ProxTV.jl. It is not intended to be used directly.
+If the user wants to use a different function, it should be implemented with care.
+"""
+function absolute_criterion_proxTV_callback_Lp(
+  s_ptr::Ptr{Cdouble},
+  s_length::Csize_t,
+  delta_k::Cdouble,
+  ctx_ptr::Ptr{Cvoid},
+)::Cint
+
+  @warn(
+    "absolute_criterion_proxTV_callback_Lp is deprecated. Use default_proxTV_callback_Lp instead."
+  )
+
   context = unsafe_pointer_to_objref(ctx_ptr)::ProxTVContext{typeof(LPnorm)}
   @inbounds for i = 1:s_length
     context.s_k[i] = unsafe_load(s_ptr, i)
@@ -111,23 +252,19 @@ function default_proxTV_callback_Lp(
   n = Int(s_length)
 
   λ = context.λ::Float64
-  ν = context.ν::Float64
   ψ_val::Float64 = λ * LPnorm(context.s_k, n, context.p::Float64)
   ϕ_val::Float64 = dot(context.∇fk, context.s_k_unshifted)
   mks = ϕ_val + ψ_val
 
   hk = context.hk::Float64
-  κξ = context.κξ::Float64
   ξk::Float64 = hk - mks
-  ratio::Float64 = (1.0 - κξ) / κξ
-  s_norm = norm(context.s_k_unshifted)
 
-  # condition::Bool = (delta_k ≤ ratio * ξk + 1 / (2 * ν) * s_norm^2) && (ξk ≥ 0)
-  condition::Bool = delta_k ≤ ratio * (ξk + 1 / (2 * ν) * s_norm^2) && ξk ≥ 0
+  dualGap = context.dualGap::Float64
+  condition::Bool = delta_k ≤ dualGap && ξk > 0 # ceci decroit quand κs croit
 
   return condition ? Int32(1) : Int32(0)
-
 end
+
 
 function default_proxTV_callback_v2(
   s_ptr::Ptr{Cdouble},
@@ -169,7 +306,7 @@ function default_proxTV_callback_v3(
   # # Computations without allocations
   # ξk = context.hk - context.mk(context.s_k_unshifted) + max(1, abs(context.hk)) * 10 * eps()
 
-  # aux = (1 - context.κξ) / context.κξ * ξk
+  # aux = (1 - context.κs) / context.κs * ξk
 
   # if aux < context.dualGap && aux ≥ 0
   #   context.dualGap = aux
@@ -194,7 +331,7 @@ and algorithm parameters.
 - `h_fun::F`: function handle for h
 - `p::Real`: parameter of the norm
 - `λ::Real`: regularization parameter
-- `κξ::Float64`: control parameter for the stopping criterion
+- `κs::Float64`: control parameter for the stopping criterion
 - `shift::Vector{Float64}`: shift vector
 - `s_k_unshifted::Vector{Float64}`: current unshifted solution
 - `dualGap::Float64`: target duality gap
@@ -219,7 +356,7 @@ mutable struct ProxTVContext{F}
   p::Real
   λ::Real
   ν::Real
-  κξ::Float64
+  κs::Float64
   shift::Vector{Float64}
   s_k_unshifted::Vector{Float64}
   dualGap::Float64
@@ -243,7 +380,7 @@ mutable struct ProxTVContext{F}
     p::Real,
     λ::Real,
     ν::Real,
-    κξ::Float64,
+    κs::Float64,
     shift::Vector{Float64},
     s_k_unshifted::Vector{Float64},
     dualGap::Float64,
@@ -268,7 +405,7 @@ mutable struct ProxTVContext{F}
       p,
       λ::Real,
       ν,
-      κξ,
+      κs,
       shift,
       s_k_unshifted,
       dualGap,
@@ -289,9 +426,16 @@ mutable struct ProxTVContext{F}
   end
 end
 
-function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, dualGap = 0.0)
+function ProxTVContext(
+  n::Int,
+  h_symb::Symbol,
+  p::Real;
+  κs = 0.75,
+  λ = 1e-1,
+  dualGap = eps(),
+)
   n <= 0 && throw(ArgumentError("number of variables must be positive"))
-  (κξ <= 1 / 2 || κξ >= 1) && throw(ArgumentError("κξ must be strictly between 1/2 and 1"))
+  (κs <= 0 || κs > 1) && throw(ArgumentError("κs must be strictly between in ]0, 1]"))
   dualGap < 0 && throw(ArgumentError("dualGap must be nonnegative"))
   p >= 1 || throw(ArgumentError("p must be greater than or equal to one"))
   shift = zeros(n)
@@ -330,7 +474,6 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
   else
     error("h_symb must be :tvp or :lp")
   end
-
   return ProxTVContext{typeof(h_fun)}(
     hk,
     h_symb,
@@ -339,7 +482,7 @@ function ProxTVContext(n::Int, h_symb::Symbol, p::Real; κξ = 0.75, λ = 1e-1, 
     p,
     λ,
     ν,
-    κξ,
+    κs,
     shift,
     s_k_unshifted,
     dualGap,
@@ -432,7 +575,7 @@ Evaluates the proximity operator of an Lp norm.
 - `ν`: Scaling factor
 
 # Note
-The quality of the proximal operator depends on κξ and the callback function, see `default_proxTV_callback_Lp`.
+The quality of the proximal operator depends on κs and the callback function, see `default_proxTV_callback_Lp`.
 """
 function prox!(y::AbstractArray, h::NormLp, q::AbstractArray, ν::Real)
   n = length(y)
@@ -1039,7 +1182,6 @@ function update_prox_context!(solver, stats, ψ::ShiftedNormLp)
   ψ.h.context.hk = stats.solver_specific[:nonsmooth_obj]
   copy!(ψ.h.context.∇fk, solver.∇fk)
   @. ψ.h.context.shift = ψ.xk + ψ.sj
-
   return
 end
 
