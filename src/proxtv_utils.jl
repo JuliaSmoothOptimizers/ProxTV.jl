@@ -75,7 +75,7 @@ function default_proxTV_callback_TVp(
   # also compute the non-theoretical stopping criterion (delta_k ≤ dualGap) in case our bound on s is too hard to reach
   dualGap = context.dualGap::Float64
 
-  condition::Bool = (delta_k ≤ dualGap || s_norm ≥ κs * bound_s) && ξk ≥ 0
+  condition::Bool = (delta_k ≤ dualGap || s_norm ≥ κs * bound_s) && ξk > 0
 
   #println(
   #  "--------------------------------\n s_norm: $s_norm,\n s_bound: $(κs * bound_s),\n delta_k: $delta_k,\n dualGap: $dualGap,\n ξk: $ξk\n condition: $condition",
@@ -112,9 +112,6 @@ function absolute_criterion_proxTV_callback_TVp(
   ctx_ptr::Ptr{Cvoid},
 )::Cint
 
-  @warn(
-    "absolute_criterion_proxTV_callback_TVp is deprecated. Use default_proxTV_callback_TVp instead."
-  )
   context = unsafe_pointer_to_objref(ctx_ptr)::ProxTVContext{typeof(TVp_norm)}
   @inbounds for i = 1:s_length
     context.s_k[i] = unsafe_load(s_ptr, i)
@@ -202,7 +199,7 @@ function default_proxTV_callback_Lp(
   bound_s_p_less_2 = ν * (∇fk_norm + n^(1 / context.p - 1 / 2))
   condition_s_norm =
     context.p >= 2 ? s_norm ≥ κs * bound_s_p_geq_2 : s_norm ≥ κs * bound_s_p_less_2
-  condition::Bool = (condition_s_norm || delta_k ≤ dualGap) && ξk ≥ 0
+  condition::Bool = (condition_s_norm || delta_k ≤ dualGap) && ξk > 0
 
   #println(
   #  "--------------------------------\n s_norm: $s_norm,\n s_bound: $(κs * bound_s_p_geq_2),\n delta_k: $delta_k,\n dualGap: $dualGap,\n ξk: $ξk\n condition: $condition",
@@ -238,10 +235,6 @@ function absolute_criterion_proxTV_callback_Lp(
   delta_k::Cdouble,
   ctx_ptr::Ptr{Cvoid},
 )::Cint
-
-  @warn(
-    "absolute_criterion_proxTV_callback_Lp is deprecated. Use default_proxTV_callback_Lp instead."
-  )
 
   context = unsafe_pointer_to_objref(ctx_ptr)::ProxTVContext{typeof(LPnorm)}
   @inbounds for i = 1:s_length
@@ -433,6 +426,7 @@ function ProxTVContext(
   κs = 0.75,
   λ = 1e-1,
   dualGap = eps(),
+  use_absolute_criterion = false,
 )
   n <= 0 && throw(ArgumentError("number of variables must be positive"))
   (κs <= 0 || κs > 1) && throw(ArgumentError("κs must be strictly between in ]0, 1]"))
@@ -459,20 +453,38 @@ function ProxTVContext(
   prox_iters_outer = 0
   prox_iters_inner = 0
   last_prox_iters = 0
-  if h_symb == :tvp
-    callback_pointer = @cfunction(
-      default_proxTV_callback_TVp,
-      Cint,
-      (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
-    )
-  elseif h_symb == :lp
-    callback_pointer = @cfunction(
-      default_proxTV_callback_Lp,
-      Cint,
-      (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
-    )
+  if use_absolute_criterion
+    if h_symb == :tvp
+      callback_pointer = @cfunction(
+        absolute_criterion_proxTV_callback_TVp,
+        Cint,
+        (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
+      )
+    elseif h_symb == :lp
+      callback_pointer = @cfunction(
+        absolute_criterion_proxTV_callback_Lp,
+        Cint,
+        (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
+      )
+    else
+      error("h_symb must be :tvp or :lp")
+    end
   else
-    error("h_symb must be :tvp or :lp")
+    if h_symb == :tvp
+      callback_pointer = @cfunction(
+        default_proxTV_callback_TVp,
+        Cint,
+        (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
+      )
+    elseif h_symb == :lp
+      callback_pointer = @cfunction(
+        default_proxTV_callback_Lp,
+        Cint,
+        (Ptr{Cdouble}, Csize_t, Cdouble, Ptr{Cvoid})
+      )
+    else
+      error("h_symb must be :tvp or :lp")
+    end
   end
   return ProxTVContext{typeof(h_fun)}(
     hk,
